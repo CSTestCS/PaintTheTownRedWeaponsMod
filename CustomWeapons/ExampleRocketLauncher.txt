@@ -1,0 +1,27 @@
+# Example explosive weapon. Fires the ExampleRocket.fbx model.
+Name: Example Rocket Launcher
+Melee or Ranged: Ranged
+Magazine size: 1
+Reserve ammo: 6
+Reload time: 2.2
+Fire type: Single
+Projectile speed: 28
+Projectile drop: 0.6
+Automatic fire rate: 1
+Projectile bounce: 0
+Projectile visual: ExampleRocket.fbx
+Projectile size: 0.35
+Projectile color: orange
+Damage: 150
+Damage type: Explosive
+Area of effect: 4
+Damage force: 60
+Appears at starting area?: no
+
+Ground chance: 10%
+Shop chance: 15%
+Shop price: 300
+Enemy chance: 4%
+Enemy damage multiplier: 0.35
+Enemy fire interval: 4
+Rarity: rare

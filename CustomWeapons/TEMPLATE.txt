@@ -1,0 +1,79 @@
+# ===========================================================================
+#  CUSTOM WEAPON TEMPLATE  (this file itself is ignored by the mod)
+# ===========================================================================
+#  1. Put your model in this folder, e.g.  MyAxe.fbx
+#  2. Copy this file next to it with the SAME name:  MyAxe.txt
+#  3. Optional texture with the same name:  MyAxe.png  (or .jpg)
+#     If the .fbx has an embedded texture, that is used when there is no .png.
+#  4. Start the game. In a level press F9 to reload your files after edits,
+#     F8 to spawn every custom weapon in front of you.
+#
+#  Format: "Setting: value" or "Setting = value". Order, upper/lower case and
+#  spaces do not matter. Lines starting with # are comments. Anything you leave
+#  out uses the default shown in [brackets].
+#  Percentages can be written as 25% or 0.25.
+# ===========================================================================
+
+# --- The basics -------------------------------------------------------------
+Name: My Weapon                    # [file name] shown in logs / HUD
+Melee or Ranged: Ranged            # [Melee] Melee or Ranged
+Damage: 25                         # [25] per hit / per projectile
+Damage type: Blunt                 # [Blunt] Blunt, Sharp, Pierce, Fire, Explosive,
+                                   #  Electric, Poison... passed to the game if it has a
+                                   #  matching type; "Explosive" also turns on a 3 m blast
+Area of effect: 0                  # [0] blast radius in metres on impact (ranged), 0 = none
+Damage force: 10                   # [10] how hard hits push bodies / ragdolls / props
+Appears at starting area?: no      # [no] yes = always placed in the starting area
+
+# --- Ranged only ------------------------------------------------------------
+Magazine size: 12                  # [12] shots before reloading, 0 or "infinite" = never reload
+Reserve ammo: infinite             # [infinite] spare ammo for reloads
+Reload time: 1.5                   # [1.5] seconds
+Fire type: Single                  # [Single] Single, Burst, Automatic, Shotgun, Hitscan, Beam
+Automatic fire rate: 6             # [6] shots per second (also limits Single/Burst)
+Burst count: 3                     # [3] shots per burst (Fire type: Burst)
+Pellets: 1                         # [1] projectiles per shot (Shotgun preset = 8)
+Spread: 1                          # [1] inaccuracy cone in degrees
+Projectile speed: 60               # [60] metres per second, 0 or "hitscan" = instant hit
+Projectile drop: 0                 # [0] gravity multiplier: 0 = straight, 1 = normal gravity
+Projectile bounce: 0               # [0] how many times it bounces off walls
+Bounciness: 70%                    # [70%] speed kept on each bounce
+Pierce: 0                          # [0] extra enemies a projectile passes through
+Range: 300                         # [300] metres, for hitscan
+Projectile visual: Bullet          # [Bullet] Bullet, Sphere, Cube, Arrow, None, Model
+                                   #  (= this weapon's model) or a file like Rocket.fbx
+                                   #  A colour word works too: "red sphere"
+Projectile color: #FFD940          # [#FFD940] #RRGGBB, a name (red, cyan...) or r,g,b
+Projectile size: 0.08              # [0.08] metres (models: length of the longest side)
+Projectile lifetime: 6             # [6] seconds before a projectile disappears
+
+# --- Melee only (written into the game's own weapon if it has these) ---------
+Durability: 0                      # [0 = same as the game weapon it is based on]
+Unbreakable: no                    # [no]
+Attack speed: 0                    # [0 = unchanged]
+Throw damage: 0                    # [0 = unchanged]
+
+# --- Where it shows up ------------------------------------------------------
+Appears on ground: yes             # [yes] lying around in levels (Beneath included)
+Ground chance: 35%                 # [35%] chance per level to place one
+Appears in shop: yes               # [yes]
+Shop chance: 25%                   # [25%] chance per shop item slot
+Shop price: 100                    # [100]
+Used by enemies: yes               # [yes]
+Enemy chance: 15%                  # [15%] chance per armed enemy to carry it
+Enemy fire interval: 1.2           # [1.2] seconds between enemy volleys (ranged)
+Enemy accuracy: 4                  # [4] extra spread in degrees for enemy shots
+Enemy damage multiplier: 0.5       # [0.5] enemies deal this fraction of Damage
+Rarity: common                     # [common] common, uncommon, rare, epic, legendary
+                                   #  or a number weight; rarer = picked less often
+
+# --- Model placement ----------------------------------------------------------
+Base weapon:                       # [auto] name of a game weapon to copy (its hold pose,
+                                   #  hit box and sounds). See _GameReport.txt for names.
+Auto fit: yes                      # [yes] scale/turn the model to match the base weapon
+Model scale: 1                     # [1] extra size multiplier
+Model rotation: 0, 0, 0            # [0,0,0] degrees x, y, z if it is held wrong
+Model offset: 0, 0, 0              # [0,0,0] metres x, y, z
+Texture:                           # [Name.png] another image file to use
+Tint: white                        # [white] colour multiplied over the texture
+Description:                       # free text, not used in game

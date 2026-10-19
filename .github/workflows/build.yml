@@ -1,0 +1,41 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to publish a release when a v* tag is pushed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Test, build and package
+        run: ./build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PTTR-CustomWeapons
+          path: |
+            dist/PTTR-CustomWeapons-Installer.exe
+            dist/PTTR-CustomWeapons-DropIn.zip
+            dist/PTTRCustomWeapons.dll
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/PTTR-CustomWeapons-Installer.exe
+            dist/PTTR-CustomWeapons-DropIn.zip
+            dist/PTTRCustomWeapons.dll

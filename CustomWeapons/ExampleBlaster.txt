@@ -1,0 +1,26 @@
+# Example ranged weapon. Model: ExampleBlaster.fbx, texture: ExampleBlaster.png
+Name: Example Blaster
+Melee or Ranged: Ranged
+Magazine size: 24
+Fire type: Automatic
+Projectile speed: 45
+Projectile drop: 0.15
+Automatic fire rate: 9
+Projectile bounce: 2
+Projectile visual: Sphere
+Projectile color: #00FFF0
+Projectile size: 0.09
+Damage: 14
+Damage type: Electric
+Area of effect: 0
+Damage force: 6
+Appears at starting area?: yes
+
+# extras
+Reload time: 1.4
+Spread: 2
+Ground chance: 30%
+Shop chance: 25%
+Shop price: 120
+Enemy chance: 10%
+Enemy fire interval: 1.5

@@ -1,0 +1,14 @@
+# Example melee weapon. Its texture is embedded inside ExampleGreatsword.fbx.
+Name: Example Greatsword
+Melee or Ranged: Melee
+Damage: 60
+Damage type: Sharp
+Damage force: 25
+Durability: 40
+Appears at starting area?: no
+
+Ground chance: 35%
+Shop chance: 30%
+Shop price: 90
+Enemy chance: 15%
+Rarity: uncommon

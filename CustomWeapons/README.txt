@@ -25,7 +25,7 @@ KEYS (in a level)
   F9   reload all .txt / .fbx files after editing them
   F10  write _GameReport.txt (game class names, for troubleshooting)
   R    reload a custom gun
-  Keys can be changed in _GameHooks.cfg.
+  Keys can be changed in _GameHooks.cfg. Edits to _GameHooks.cfg need a game restart.
 
 MODEL TIPS
   * Export from Blender with File > Export > FBX, default settings are fine.
@@ -41,5 +41,4 @@ FILES THE MOD WRITES HERE
                       Only needs changing if a game update breaks something.
   _GameReport.txt     what the mod found inside the game.
   _CustomWeapons.log  what happened (loaded weapons, errors). Check this first
-                      if a weapon does not show up. The full MelonLoader log is
-                      in MelonLoader\Latest.log.
+                      if a weapon does not show up.

@@ -2,8 +2,7 @@
   <!--
     One-file Windows installer. Targets .NET Framework 4.8, which is built into Windows 10/11,
     so players do not need to install anything else.
-    Build with -p:MelonLoaderZip=path/to/MelonLoader.x64.zip to bundle MelonLoader (offline install);
-    without it the installer downloads MelonLoader from GitHub when needed.
+    It carries the native mod (version.dll, built by native/Makefile) and the example weapons.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -12,23 +11,20 @@
     <RootNamespace>PTTRCustomWeapons.Installer</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <OutputPath>$(MSBuildThisFileDirectory)../../build/installer/</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DebugType>none</DebugType>
-    <ModDll Condition="'$(ModDll)' == ''">$(MSBuildThisFileDirectory)../../build/mod/PTTRCustomWeapons.dll</ModDll>
+    <NativeDll Condition="'$(NativeDll)' == ''">$(MSBuildThisFileDirectory)../../build/native/version.dll</NativeDll>
     <ExamplesDir>$(MSBuildThisFileDirectory)../../CustomWeapons/</ExamplesDir>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-    <Reference Include="System.IO.Compression" />
-    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(ModDll)" LogicalName="payload/Mods/PTTRCustomWeapons.dll" />
+    <EmbeddedResource Include="$(NativeDll)" LogicalName="payload/version.dll" />
     <EmbeddedResource Include="$(ExamplesDir)*.*" Exclude="$(ExamplesDir)_*" LogicalName="payload/CustomWeapons/%(Filename)%(Extension)" />
-    <EmbeddedResource Include="$(MelonLoaderZip)" LogicalName="payload/MelonLoader.x64.zip" Condition="'$(MelonLoaderZip)' != '' And Exists('$(MelonLoaderZip)')" />
   </ItemGroup>
 </Project>

@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Net;
 using System.Reflection;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
@@ -15,16 +13,16 @@ namespace PTTRCustomWeapons.Installer
     /// <summary>
     /// Installs the Custom Weapons mod into the Steam copy of Paint the Town Red:
     ///   1. finds the game through Steam (or asks for the folder / takes one dragged onto the exe)
-    ///   2. installs MelonLoader (the mod loader) if it is not there yet
-    ///   3. copies the mod into Mods\ and the example weapons into CustomWeapons\
-    /// Run with "uninstall" to remove the mod again.
+    ///   2. puts the mod (a small version.dll) next to the game's exe - no mod loader needed
+    ///   3. copies the example weapons into CustomWeapons\
+    /// An older MelonLoader-based install is removed. Run with "uninstall" to remove the mod.
     /// </summary>
     internal static class Program
     {
         private const string SteamAppId = "337320";
         private const string DefaultFolderName = "Paint the Town Red";
-        private const string MelonLoaderUrl = "https://github.com/LavaGang/MelonLoader/releases/download/v0.7.1/MelonLoader.x64.zip";
-        private const string ModFile = "PTTRCustomWeapons.dll";
+        private const string Marker = "PTTR_CUSTOM_WEAPONS_NATIVE";
+        private const string OldModFile = "PTTRCustomWeapons.dll";
 
         private static int Main(string[] args)
         {
@@ -52,13 +50,11 @@ namespace PTTRCustomWeapons.Installer
                     Console.WriteLine();
                     Console.WriteLine("  [1] Install / update the mod   (default - just press Enter)");
                     Console.WriteLine("  [2] Uninstall the mod (keeps your CustomWeapons folder)");
-                    Console.WriteLine("  [3] Uninstall the mod and MelonLoader");
                     Console.Write("> ");
                     var choice = (Console.ReadLine() ?? "").Trim();
-                    if (choice == "2") return Uninstall(gameDir, removeLoader: false, quiet);
-                    if (choice == "3") return Uninstall(gameDir, removeLoader: true, quiet);
+                    if (choice == "2") return Uninstall(gameDir, quiet);
                 }
-                else if (uninstall) return Uninstall(gameDir, removeLoader: args.Any(a => a.Contains("loader")), quiet);
+                else if (uninstall) return Uninstall(gameDir, quiet);
 
                 return Install(gameDir, quiet);
             }
@@ -66,6 +62,10 @@ namespace PTTRCustomWeapons.Installer
             {
                 if (!IsAdmin() && RelaunchAsAdmin(args)) return 0;
                 return Fail("Windows refused access to the game folder. Right-click the installer and choose 'Run as administrator'.", false);
+            }
+            catch (IOException ex) when (ex.HResult == unchecked((int)0x80070020))
+            {
+                return Fail("A game file is in use. Close Paint the Town Red and run the installer again.", false);
             }
             catch (Exception ex)
             {
@@ -75,28 +75,53 @@ namespace PTTRCustomWeapons.Installer
 
         // ------------------------------------------------------------------ install
 
+        private static bool IsOurDll(string path)
+        {
+            if (!File.Exists(path)) return false;
+            var bytes = File.ReadAllBytes(path);
+            var marker = System.Text.Encoding.ASCII.GetBytes(Marker);
+            for (int i = 0; i + marker.Length <= bytes.Length; i++)
+            {
+                int k = 0;
+                while (k < marker.Length && bytes[i + k] == marker[k]) k++;
+                if (k == marker.Length) return true;
+            }
+            return false;
+        }
+
+        private static bool Ask(string question, bool quiet)
+        {
+            if (quiet) return true;
+            Console.Write(question + " [Y/n] ");
+            var a = (Console.ReadLine() ?? "").Trim();
+            return a.Length == 0 || a.StartsWith("y", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static int Install(string gameDir, bool quiet)
         {
-            // 1. MelonLoader
-            var loaderDll = Path.Combine(gameDir, "MelonLoader", "net6", "MelonLoader.dll");
-            var proxy = Path.Combine(gameDir, "version.dll");
-            if (File.Exists(loaderDll) && File.Exists(proxy))
+            var dll = Path.Combine(gameDir, "version.dll");
+            var melon = Path.Combine(gameDir, "MelonLoader");
+
+            // 1. an earlier install that used MelonLoader, or another tool's version.dll
+            if (Directory.Exists(melon))
             {
-                Info("MelonLoader is already installed - keeping it.");
+                Warn("MelonLoader is installed. This version of the mod does not need it, and both use version.dll.");
+                if (!Ask("Remove MelonLoader now? (Other MelonLoader mods will stop working)", quiet))
+                    return Fail("Installation cancelled - MelonLoader was left in place.", quiet);
+                RemoveMelonLoader(gameDir);
+                Ok("Removed MelonLoader.");
             }
-            else
+            else if (File.Exists(dll) && !IsOurDll(dll))
             {
-                Info("Installing MelonLoader (the mod loader)...");
-                using var zip = OpenMelonLoaderZip();
-                ExtractAll(zip, gameDir);
-                Ok("MelonLoader installed.");
+                Warn("The game folder already has a version.dll from another tool.");
+                if (!Ask("Replace it? (it is kept as version.dll.bak)", quiet))
+                    return Fail("Installation cancelled.", quiet);
+                File.Copy(dll, dll + ".bak", true);
             }
 
             // 2. the mod
-            var mods = Path.Combine(gameDir, "Mods");
-            Directory.CreateDirectory(mods);
-            WriteResource("payload/Mods/" + ModFile, Path.Combine(mods, ModFile), overwrite: true);
-            Ok($"Mod installed: Mods\\{ModFile}");
+            WriteResource("payload/version.dll", dll, overwrite: true);
+            Ok("Mod installed: version.dll");
 
             // 3. weapon folder + examples (never overwrites the player's own files)
             var weapons = Path.Combine(gameDir, "CustomWeapons");
@@ -112,51 +137,34 @@ namespace PTTRCustomWeapons.Installer
 
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("  All done!");
+            Console.WriteLine("  All done! Start the game from Steam as usual.");
             Console.ResetColor();
             Console.WriteLine();
-            Console.WriteLine("  * Start the game from Steam. The FIRST launch takes a few minutes while MelonLoader");
-            Console.WriteLine("    prepares itself (a console window appears) - this needs an internet connection once.");
             Console.WriteLine("  * Add weapons: put  MyWeapon.fbx  +  MyWeapon.txt  (+ MyWeapon.png) into:");
             Console.WriteLine("      " + weapons);
             Console.WriteLine("    Copy TEMPLATE.txt to start a new .txt - every setting is explained inside.");
             Console.WriteLine("  * In a level: F8 = spawn all custom weapons in front of you, F9 = reload weapon files,");
             Console.WriteLine("    F10 = write a report about the game's classes (for troubleshooting).");
+            Console.WriteLine("  * What happened is logged in CustomWeapons\\_CustomWeapons.log");
             Console.WriteLine();
 
-            if (!quiet)
-            {
-                Console.Write("Open the CustomWeapons folder now? [Y/n] ");
-                var a = (Console.ReadLine() ?? "").Trim();
-                if (a.Length == 0 || a.StartsWith("y", StringComparison.OrdinalIgnoreCase))
-                    try { Process.Start("explorer.exe", "\"" + weapons + "\""); } catch { }
-            }
+            if (!quiet && Ask("Open the CustomWeapons folder now?", false))
+                try { Process.Start("explorer.exe", "\"" + weapons + "\""); } catch { }
             return 0;
         }
 
-        private static ZipArchive OpenMelonLoaderZip()
+        private static void RemoveMelonLoader(string gameDir)
         {
-            var embedded = Assembly.GetExecutingAssembly().GetManifestResourceStream("payload/MelonLoader.x64.zip");
-            if (embedded != null) return new ZipArchive(embedded, ZipArchiveMode.Read);
-
-            Info("Downloading MelonLoader from GitHub...");
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)12288; // TLS 1.2 / 1.3
-            using var wc = new WebClient();
-            wc.Headers.Add("User-Agent", "PTTR-CustomWeapons-Installer");
-            var bytes = wc.DownloadData(MelonLoaderUrl);
-            return new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
-        }
-
-        private static void ExtractAll(ZipArchive zip, string dir)
-        {
-            var root = Path.GetFullPath(dir);
-            foreach (var e in zip.Entries)
+            var proxy = Path.Combine(gameDir, "version.dll");
+            if (File.Exists(proxy) && !IsOurDll(proxy)) File.Delete(proxy);
+            var ml = Path.Combine(gameDir, "MelonLoader");
+            if (Directory.Exists(ml)) Directory.Delete(ml, true);
+            var oldMod = Path.Combine(gameDir, "Mods", OldModFile);
+            if (File.Exists(oldMod)) File.Delete(oldMod);
+            foreach (var d in new[] { "Mods", "Plugins", "UserLibs", "UserData" })
             {
-                var dest = Path.GetFullPath(Path.Combine(root, e.FullName));
-                if (!dest.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue; // never write outside the game folder
-                if (e.FullName.EndsWith("/") || e.FullName.EndsWith("\\")) { Directory.CreateDirectory(dest); continue; }
-                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-                e.ExtractToFile(dest, true);
+                var p = Path.Combine(gameDir, d);
+                if (Directory.Exists(p) && !Directory.EnumerateFileSystemEntries(p).Any()) Directory.Delete(p);
             }
         }
 
@@ -172,24 +180,21 @@ namespace PTTRCustomWeapons.Installer
 
         // ------------------------------------------------------------------ uninstall
 
-        private static int Uninstall(string gameDir, bool removeLoader, bool quiet)
+        private static int Uninstall(string gameDir, bool quiet)
         {
-            var dll = Path.Combine(gameDir, "Mods", ModFile);
-            if (File.Exists(dll)) { File.Delete(dll); Ok("Removed Mods\\" + ModFile); }
-            else Info("The mod was not installed.");
-
-            if (removeLoader)
+            var dll = Path.Combine(gameDir, "version.dll");
+            if (IsOurDll(dll))
             {
-                var proxy = Path.Combine(gameDir, "version.dll");
-                if (File.Exists(proxy)) File.Delete(proxy);
-                var ml = Path.Combine(gameDir, "MelonLoader");
-                if (Directory.Exists(ml)) Directory.Delete(ml, true);
-                foreach (var d in new[] { "Mods", "Plugins", "UserLibs", "UserData" })
-                {
-                    var p = Path.Combine(gameDir, d);
-                    if (Directory.Exists(p) && !Directory.EnumerateFileSystemEntries(p).Any()) Directory.Delete(p);
-                }
-                Ok("Removed MelonLoader. (Other mods' folders were kept if they were not empty.)");
+                File.Delete(dll);
+                Ok("Removed version.dll");
+                var bak = dll + ".bak";
+                if (File.Exists(bak)) { File.Move(bak, dll); Ok("Restored the previous version.dll"); }
+            }
+            else Info("The mod was not installed.");
+            if (Directory.Exists(Path.Combine(gameDir, "MelonLoader")) && Ask("Also remove MelonLoader (from an older version of this mod)?", quiet))
+            {
+                RemoveMelonLoader(gameDir);
+                Ok("Removed MelonLoader.");
             }
             Info("Your CustomWeapons folder was kept: " + Path.Combine(gameDir, "CustomWeapons"));
             if (!quiet) { Console.WriteLine("Press Enter to close."); Console.ReadLine(); }
@@ -295,7 +300,7 @@ namespace PTTRCustomWeapons.Installer
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("==============================================================");
-            Console.WriteLine("   PAINT THE TOWN RED  -  CUSTOM WEAPONS  -  installer v1.0");
+            Console.WriteLine("   PAINT THE TOWN RED  -  CUSTOM WEAPONS  -  installer v2.0");
             Console.WriteLine("==============================================================");
             Console.ResetColor();
         }

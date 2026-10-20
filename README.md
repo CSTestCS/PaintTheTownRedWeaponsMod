@@ -11,14 +11,17 @@ Drop in a raw `.fbx` model with a `.txt` file of the same name, and it becomes a
 ## Install (players)
 
 **Option A – installer (recommended).** Download **`dist/PTTR-CustomWeapons-Installer.exe`** and run it.
-It finds the game through Steam, installs [MelonLoader](https://github.com/LavaGang/MelonLoader) (the mod loader, bundled inside),
-the mod, and three example weapons. Run it again to update or uninstall.
+It finds the game through Steam and puts the mod (a small `version.dll`) next to the game's exe, along with three example weapons.
+Run it again to update or uninstall.
 
 **Option B – drop-in.** Extract **`dist/PTTR-CustomWeapons-DropIn.zip`** into the game folder
-(Steam → right-click the game → *Manage* → *Browse local files*) so that `version.dll` sits next to `PaintTheTownRed.exe`.
+(Steam → right-click the game → *Manage* → *Browse local files*), so that `version.dll` sits next to `PaintTheTownRed.exe`.
 
-Then start the game. **The first launch takes a few minutes** while MelonLoader sets itself up. It needs internet access once.
-Already using MelonLoader 0.7+? Just put `dist/PTTRCustomWeapons.dll` into the game's `Mods` folder.
+Then start the game as usual. There is no mod loader, no first-launch setup, and no extra background process.
+The mod adds well under a second to startup.
+
+*Upgrading from the first (MelonLoader) version:* the installer removes MelonLoader for you after asking.
+For the drop-in, delete the `MelonLoader` folder yourself.
 
 ## Adding a weapon
 
@@ -95,44 +98,48 @@ A file with only values, one per line, in the order of the list below, also work
 
 ## How it works
 
-Paint the Town Red is an IL2CPP Unity game, so the mod runs on MelonLoader 0.7 and uses the game's own classes
-(`PTTRPlayer`, `Enemy`, the weapon class returned by `PTTRPlayer.CurrentWeapon`) through reflection.
+Paint the Town Red is an IL2CPP Unity game. The mod is a native `version.dll`, which Windows loads from the game folder.
+Every real `version.dll` function is passed through to the system copy.
 
-- **Models.** Unity can't load `.fbx` files at runtime, so the mod has its own FBX reader. It reads binary 6.1–7.7 and ASCII 7.x files, including node transforms, n-gons, normals, UVs, vertex colours, embedded textures, and the axis/unit conversion Unity's importer does. It is tested against real Blender exports.
-- **Weapons.** A custom weapon is a copy of a real game weapon. The original model is hidden, yours is attached and auto-fitted, and your stats are written into the game's weapon fields. The game itself handles pickup, swinging, throwing, dropping, breaking, buying and enemy use. Melee weapons fight entirely through the game.
-- **Ranged.** Custom guns use the mod's own projectile system: raycast-swept projectiles with drop, bounce, pierce, spread, pellets, bursts, area damage with falloff and physics force, plus magazine and reload. Hits call the game's own damage functions.
-- **Game integration** (class names, member names, scene names, keys) lives in `CustomWeapons/_GameHooks.cfg`. After a game update, look at `_GameReport.txt` and fix names there; no recompiling needed.
+- **Startup.** A background thread reads the weapon files, waits for the game's IL2CPP runtime, then hooks one per-frame game method (`PTTRPlayer.Update`). All game work happens inside that hook, on Unity's main thread.
+- **Game access.** Classes, methods and fields are found by name through the IL2CPP runtime's own C API. Nothing is decompiled or generated, so there is no MelonLoader-style first-launch step.
+- **Models.** The mod has its own FBX reader, because Unity can't load `.fbx` at runtime. It reads binary 6.1–7.7 and ASCII 7.x files, including node transforms, n-gons, normals, UVs, vertex colours and embedded textures, and applies the same axis/unit conversion as Unity's importer. It is tested against real Blender exports.
+- **Weapons.** A custom weapon is a copy of a real game weapon. The original model is hidden, yours is attached and auto-fitted, and your stats are written into the game's weapon fields. The game handles pickup, swinging, throwing, dropping, breaking, buying and enemy use.
+- **Ranged.** Custom guns use the mod's own projectiles: drop, bounce, pierce, spread, pellets, bursts, area damage with falloff, physics force, magazine and reload. Hits call the game's own damage functions.
+- **Game integration** (class names, member names, scene names, keys) lives in `CustomWeapons/_GameHooks.cfg`. After a game update, look at `_GameReport.txt` and fix names there.
 
 ## Status / known limitations
 
-- **This has not been tested inside the game yet.** It was built and unit-tested without access to Paint the Town Red.
-  The FBX loading, settings parsing, ballistics and the installer are tested. Class names come from a public PTTR mod (`PTTRPlayer`, `Enemy`, `CurrentWeapon`).
-  The rest of the game integration (shop and damage method names, the Beneath scene names) is best-effort and configurable. If something doesn't happen in game, check `CustomWeapons/_CustomWeapons.log` and `_GameReport.txt`, then adjust `_GameHooks.cfg`.
+- **Not tested inside the real game yet.** This was built without access to Paint the Town Red.
+  - Tested: the FBX reader, settings parser, ballistics and installer. Under Wine with a mock game, the mod loads as `version.dll`, waits for the runtime, hooks `PTTRPlayer.Update` and runs every frame without disturbing the game.
+  - Not tested: the Unity-side work (spawning, models, firing, damage). Class names come from a public PTTR mod (`PTTRPlayer`, `Enemy`, `CurrentWeapon`). Shop and damage method names and Beneath scene names are best guesses, and all of them can be changed in `_GameHooks.cfg`.
+  - If something doesn't happen, check `CustomWeapons/_CustomWeapons.log` and `_GameReport.txt`.
+- The mod only runs while a level is loaded (its per-frame hook is the player's update).
 - A custom gun copies a game gun. By default the copy's own ammo is set to 0 so only the custom projectiles fire (`GameGunAmmo` in `_GameHooks.cfg`).
+- There is no on-screen ammo counter yet; reloads happen automatically or with **R**.
 - Area of effect, bounce and other projectile settings apply to ranged weapons. Melee hits are the game's own.
 - Custom weapons carried to a new Beneath floor may revert to the original model if the game re-creates the weapon object.
 - Sounds and animations come from the copied game weapon.
-- MelonLoader needs internet on first launch to download Unity dependencies.
 
 ## Building from source
 
-Requires the .NET 8 SDK (and python3 for packaging).
+Requires MinGW-w64, g++, make, the .NET 8 SDK (for the installer) and python3.
+On Ubuntu: `sudo apt install g++-mingw-w64-x86-64 dotnet-sdk-8.0`.
 
 ```
-./build.sh                                   # tests + mod + installer + dist/ packages
-dotnet test tests/PTTRCustomWeapons.Tests    # tests only
+./build.sh                  # core tests + version.dll + installer + dist/ packages
+make -C native test         # core unit tests only (any OS with g++)
 dotnet run --project tools/ExampleGen -- CustomWeapons   # regenerate the example models
 ```
 
-No game files are needed to build. `src/Stubs` contains small reference-only stand-ins for the assemblies MelonLoader generates from the game. They are never shipped.
-GitHub Actions builds every push and publishes a release for `v*` tags.
+No game files are needed to build. GitHub Actions builds every push and publishes a release for `v*` tags.
 
 | Path | What |
 |---|---|
-| `src/PTTRCustomWeapons/Core` | Engine-independent code: FBX reader, settings parser, ballistics (unit-tested) |
-| `src/PTTRCustomWeapons/Game` | Unity/game side: spawning, model swap, combat, projectiles, damage, report |
+| `native/src/core` | Portable code: FBX reader, settings parser, ballistics (unit-tested) |
+| `native/src/win` | The mod: `version.dll` proxy, IL2CPP access, Unity calls, spawning, combat, projectiles, damage, report |
+| `native/tests` | Unit tests with Blender-exported fixtures, plus a mock game for testing under Wine |
+| `native/third_party` | MinHook (function hooking, BSD-2) and stb_image (zlib/PNG/JPG, public domain) |
 | `src/Installer` | Windows installer (.NET Framework 4.8, built into Windows 10/11) |
-| `src/Stubs` | Compile-time stand-ins for MelonLoader's generated Unity assemblies |
-| `tests` | xUnit tests, including Blender-exported FBX fixtures |
 | `tools/ExampleGen` | Generates the example models |
 | `CustomWeapons` | Example weapons, template and readme copied into the game |
